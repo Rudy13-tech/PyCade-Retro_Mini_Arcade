@@ -8,6 +8,7 @@ from flask import Flask, request, render_template_string
 # ── Retro Styling ─────────────────────────────────────────────────────────────
 BG, PANEL_BG, GRID, GREEN, GREEN_DIM = "#060d06", "#040c04", "#0a140a", "#00ff77", "#224422"
 TITLE_COL, TEXT_DIM, BORDER, HOVER_BG = "#00ff77", "#336633", "#00bb55", "#0a1f0a"
+SELECT_RED = "#ff3355" # 🔴 The new red highlight color!
 
 GAMES = [
     {"name": "GEO DASH", "desc": "Avoid spikes, land on platforms, survive!", "module": "Geodash", "class": "GeoDash"},
@@ -25,25 +26,57 @@ CONTROLLER_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Arcade Controller</title>
     <style>
-        body { background-color: #060d06; color: #00ff77; font-family: 'Courier New', monospace; 
-               display: flex; flex-direction: column; align-items: center; justify-content: center; 
-               height: 100vh; margin: 0; overflow: hidden; user-select: none; }
-        h2 { margin-bottom: 20px; text-shadow: 0 0 5px #00ff77; }
-        .gamepad { display: flex; width: 100%; max-width: 600px; justify-content: space-around; align-items: center;}
-        .dpad { display: grid; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px 60px; gap: 5px; }
-        .btn { background-color: #040c04; border: 2px solid #00bb55; border-radius: 10px; 
-               color: #00ff77; font-size: 24px; font-weight: bold; display: flex; 
-               align-items: center; justify-content: center; active-bg: #00ff77; touch-action: none; }
-        .btn:active { background-color: #00ff77; color: #000; }
+        body { 
+            background-color: #060d06; color: #00ff77; font-family: 'Courier New', monospace; 
+            display: flex; flex-direction: column; height: 100vh; margin: 0; 
+            overflow: hidden; user-select: none; box-sizing: border-box; padding: 20px;
+        }
+        
+        /* Top Menu Bar */
+        .menu-btns { 
+            display: flex; justify-content: center; gap: 15px; width: 100%; 
+            position: absolute; top: 20px; left: 0;
+        }
+        .menu-btn { 
+            padding: 12px 20px; font-size: 16px; border-radius: 8px; 
+            background-color: #040c04; border: 2px solid #00bb55; color: #00ff77; font-weight: bold;
+        }
+
+        /* Bottom Gamepad Area */
+        .gamepad { 
+            display: flex; width: 100%; height: 100%; 
+            justify-content: space-between; align-items: flex-end; padding-bottom: 20px;
+        }
+        
+        /* D-Pad on the Left */
+        .dpad { 
+            display: grid; grid-template-columns: 80px 80px 80px; grid-template-rows: 80px 80px 80px; gap: 8px; 
+        }
+        
+        /* General Button Styling */
+        .btn { 
+            background-color: #040c04; border: 3px solid #00bb55; border-radius: 15px; 
+            color: #00ff77; font-size: 32px; font-weight: bold; display: flex; 
+            align-items: center; justify-content: center; touch-action: none; 
+        }
         .empty { visibility: hidden; }
-        .action-btns { display: flex; gap: 20px; }
-        .action-btn { width: 80px; height: 80px; border-radius: 50%; font-size: 20px; }
-        .menu-btns { display: flex; gap: 10px; margin-top: 40px; }
-        .menu-btn { padding: 10px 20px; font-size: 14px; border-radius: 5px; width: 80px;}
+        
+        /* Action Buttons on the Right */
+        .action-btns { 
+            display: flex; flex-direction: column; justify-content: flex-end; gap: 20px; margin-bottom: 80px; margin-right: 20px;
+        }
+        .action-btn { 
+            width: 110px; height: 110px; border-radius: 50%; font-size: 24px; text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h2>▓ VIRTUAL PAD ▓</h2>
+    <div class="menu-btns">
+        <div class="menu-btn btn" data-key="Alt-Left">RETURN</div>
+        <div class="menu-btn btn" data-key="r">RESTART</div>
+        <div class="menu-btn btn" data-key="Return">ENTER</div>
+    </div>
+
     <div class="gamepad">
         <div class="dpad">
             <div class="empty"></div>
@@ -56,10 +89,6 @@ CONTROLLER_HTML = """
         <div class="action-btns">
             <div class="btn action-btn" data-key="space">JUMP<br>(Spc)</div>
         </div>
-    </div>
-    <div class="menu-btns">
-        <div class="btn menu-btn" data-key="r">RESET</div>
-        <div class="btn menu-btn" data-key="Alt-Left">BACK</div>
     </div>
 
     <script>
@@ -74,7 +103,6 @@ CONTROLLER_HTML = """
         }
 
         buttons.forEach(btn => {
-            // Prevent zooming and scrolling when mashing buttons
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault(); 
                 btn.style.backgroundColor = '#00ff77';
@@ -98,7 +126,6 @@ CONTROLLER_HTML = """
 tk_app_instance = None
 
 app = Flask(__name__)
-# Silence Flask's default terminal spam
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
@@ -112,7 +139,6 @@ def handle_input():
     key = data.get('key')
     state = data.get('state')
     
-    # Safely inject the keypress into the Tkinter main thread
     if tk_app_instance and tk_app_instance.root:
         if state == 'press':
             if key == "Alt-Left":
@@ -129,7 +155,6 @@ def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
 
 def get_local_ip():
-    """Finds the local IP address of the laptop so the user can connect via phone."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('10.255.255.255', 1))
@@ -149,9 +174,12 @@ class ArcadeHub:
         self.current_game_instance = None
         
         self.local_ip = get_local_ip()
+        self.selected_idx = 0  
+        self.cards = []        
         
         self.root.bind("<Alt-Left>", self.go_back)
         self.root.bind("<Escape>", lambda e: self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")))
+        
         self.root.attributes("-fullscreen", True) 
         self.show_hub()
 
@@ -161,6 +189,7 @@ class ArcadeHub:
 
     def show_hub(self):
         self.clear_window()
+        self.cards = [] 
         self.root.title("▓ RETRO ARCADE HUB ▓")
         self.root.configure(bg=BG)
 
@@ -168,10 +197,9 @@ class ArcadeHub:
         header.pack(fill=tk.X)
         tk.Label(header, text="▓ RETRO ARCADE HUB ▓", font=("Courier", 32, "bold"), fg=TITLE_COL, bg=PANEL_BG).pack()
         
-        # Display the Controller URL here!
         url_text = f"PHONE CONTROLLER: http://{self.local_ip}:5000"
         tk.Label(header, text=url_text, font=("Courier", 14, "bold"), fg="#ffcc00", bg=PANEL_BG).pack(pady=(10, 5))
-        tk.Label(header, text="PRESS ESC TO TOGGLE FULLSCREEN | SELECT A GAME", font=("Courier", 12), fg=TEXT_DIM, bg=PANEL_BG).pack(pady=(0, 0))
+        tk.Label(header, text="USE 'W'/'S' TO NAVIGATE | PRESS 'ENTER' TO PLAY", font=("Courier", 12), fg=TEXT_DIM, bg=PANEL_BG).pack(pady=(0, 0))
         tk.Frame(self.root, bg=BORDER, height=2).pack(fill=tk.X)
 
         self.main_container = tk.Frame(self.root, bg=BG)
@@ -190,18 +218,49 @@ class ArcadeHub:
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 5))
 
         self.root.bind("<MouseWheel>", self._on_mousewheel)
+        self.root.bind("<Up>", self._nav_up)
+        self.root.bind("<Down>", self._nav_down)
+        self.root.bind("<Return>", self._nav_enter)
 
         for game_info in GAMES:
             self._create_game_card(game_info)
+            
+        self._update_selection() 
 
     def _on_mousewheel(self, event):
         if not self.current_game_instance:
             if event.delta > 0: self.canvas.yview_scroll(-1, "units")
             elif event.delta < 0: self.canvas.yview_scroll(1, "units")
 
+    def _nav_up(self, event=None):
+        if not self.current_game_instance and self.selected_idx > 0:
+            self.selected_idx -= 1
+            self._update_selection()
+            self.canvas.yview_scroll(-2, "units") 
+
+    def _nav_down(self, event=None):
+        if not self.current_game_instance and self.selected_idx < len(GAMES) - 1:
+            self.selected_idx += 1
+            self._update_selection()
+            self.canvas.yview_scroll(2, "units") 
+
+    def _nav_enter(self, event=None):
+        if not self.current_game_instance:
+            self.launch_game(GAMES[self.selected_idx])
+
+    def _update_selection(self):
+        """Highlights the currently selected game card in RED."""
+        for i, card in enumerate(self.cards):
+            if i == self.selected_idx:
+                card.configure(bg=SELECT_RED) # 🔴 Active card turns red
+            else:
+                card.configure(bg=BORDER)     # 🟢 Inactive cards stay green
+
     def _create_game_card(self, game_info):
         border_frame = tk.Frame(self.list_frame, bg=BORDER, cursor="hand2")
         border_frame.pack(fill=tk.X, padx=150, pady=15)
+        
+        self.cards.append(border_frame) 
 
         card = tk.Frame(border_frame, bg=PANEL_BG)
         card.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
@@ -219,21 +278,21 @@ class ArcadeHub:
         play_btn.pack(side=tk.RIGHT, padx=30)
 
         for w in [border_frame, card, info_frame, title, desc, play_btn]:
-            w.bind("<Enter>", lambda e, bf=border_frame: self._on_hover(bf, True))
-            w.bind("<Leave>", lambda e, bf=border_frame: self._on_hover(bf, False))
+            w.bind("<Enter>", lambda e, idx=len(self.cards)-1: self._mouse_hover_select(idx))
             w.bind("<Button-1>", lambda e, g=game_info: self.launch_game(g))
 
-    def _on_hover(self, border_frame, entering):
-        color = TITLE_COL if entering else BORDER
-        border_frame.configure(bg=color)
+    def _mouse_hover_select(self, idx):
+        self.selected_idx = idx
+        self._update_selection()
 
     def launch_game(self, game_info):
         self.clear_window()
-        self.root.unbind("<MouseWheel>")
+        for b in ["<MouseWheel>", "<Up>", "<Down>", "<Return>"]:
+            self.root.unbind(b)
         
         nav = tk.Frame(self.root, bg="#003311", pady=8)
         nav.pack(fill=tk.X)
-        back_btn = tk.Button(nav, text="🔙 BACK TO HUB (Alt + ←)", font=("Courier", 11, "bold"), fg=BG, bg=GREEN, cursor="hand2", relief=tk.FLAT, command=self.go_back)
+        back_btn = tk.Button(nav, text="🔙 BACK TO HUB (Return)", font=("Courier", 11, "bold"), fg=BG, bg=GREEN, cursor="hand2", relief=tk.FLAT, command=self.go_back)
         back_btn.pack(side=tk.LEFT, padx=20)
 
         try:
@@ -258,10 +317,8 @@ class ArcadeHub:
         self.show_hub()
 
 if __name__ == "__main__":
-    # Start the web server in the background
     threading.Thread(target=run_flask, daemon=True).start()
     
-    # Start the Arcade GUI
     root = tk.Tk()
     app = ArcadeHub(root)
     root.mainloop()
